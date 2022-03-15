@@ -9,7 +9,7 @@ Description = maximum power for snap 660
 How to use :
 - Open termux / terminal emulator 
 - Command "su"
-- Command "monstertweak
+- Command "monstertweak"
 
 Notes :
 - ONLY FOR 4.4 KERNEL
