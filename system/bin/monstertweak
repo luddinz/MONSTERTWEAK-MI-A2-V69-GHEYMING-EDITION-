@@ -1,0 +1,337 @@
+#!/system/bin/sh
+# Written by Draco (tytydraco @ GitHub)
+
+# Log in red
+err() {
+	if [[ -n "$SIMPLE_LOGGING" ]]
+	then
+		echo "ERROR $*"
+	else
+		echo -e " \e[91m*\e[39m $*"
+	fi
+}
+
+# Log in orange
+warn() {
+	if [[ -n "$SIMPLE_LOGGING" ]]
+	then
+		echo "WARNING $*"
+	else
+		echo -e " \e[93m*\e[39m $*"
+	fi
+}
+
+# Log in white and continue (unnecessary)
+dbg() {
+	if [[ -n "$SIMPLE_LOGGING" ]]
+	then
+		echo "DEBUG $*"
+	else
+		echo -e " \e[92m*\e[39m $*"
+	fi
+}
+
+# Safely write value to file
+write() {
+	# Bail out if file does not exist
+	[[ ! -f "$1" ]] && return 1
+
+	# Fetch the current key value
+	local curval
+	curval="$(cat "$1" 2> /dev/null)"
+
+	# Bail out if value is already set
+	if [[ "$curval" == "$2" ]]
+	then
+		warn "$1: $curval → $2"
+		return 0
+	fi
+
+	# Write the new value
+	if ! echo "$2" > "$1" 2> /dev/null
+	then
+		err "$1: $curval → $2"
+		return 1
+	fi
+
+	dbg "$1: $curval → $2"
+}
+
+usage() {
+	echo -n "Usage: $(basename "$0") [OPTIONS]
+Options:
+  -p			Parsable logging
+  -h			Show usage
+"
+}
+
+while getopts ":ph" opt; do
+	case $opt in
+		p)
+			SIMPLE_LOGGING=1
+			;;
+		h)
+			usage
+			exit 0
+			;;
+		*)
+			usage
+			exit 1
+			;;
+	esac
+done
+shift $((OPTIND - 1))
+
+# Check for root permissions
+if [[ "$(id -u)" -ne 0 ]]
+then
+	err "No root permissions. Exiting."
+	exit 1
+fi
+
+
+# Log the date and time
+dbg "Time of execution: $(date)"
+
+# Kernel  
+write /proc/sys/kernel/sched_cfs_boost 0
+write /proc/sys/kernel/sched_child_runs_first 0
+write /proc/sys/kernel/sched_cstat_aware 1
+write /proc/sys/kernel/sched_energy_aware 1
+write /proc/sys/kernel/sched_tunable_scaling 0
+write /proc/sys/kernel/sched_latency_ns 20000000
+write /proc/sys/kernel/sched_task_unfilter_period 200000000
+write /proc/sys/kernel/sched_migration_cost_ns 500000
+write /proc/sys/kernel/sched_min_granularity_ns 1000000
+write /proc/sys/kernel/sched_nr_migrate 128
+write /proc/sys/kernel/sched_rr_timeslice_ms 3
+write /proc/sys/kernel/sched_rt_period_us 1000000
+write /proc/sys/kernel/sched_rt_runtime_us 950000
+write /proc/sys/kernel/sched_shares_window_ns 10000000
+write /proc/sys/kernel/sched_sync_hint_enable 1
+write /proc/sys/kernel/sched_time_avg_ms 1000
+write /proc/sys/kernel/sched_tunable_scaling 0
+write /proc/sys/kernel/sched_use_walt_cpu_util 1
+write /proc/sys/kernel/sched_use_walt_task_util 1
+write /proc/sys/kernel/sched_wakeup_granularity_ns 4000000
+write /proc/sys/kernel/sched_walt_cpu_high_irqload 20000000
+write /proc/sys/kernel/sched_walt_init_task_load_pct 20
+
+# VM
+write /proc/sys/vm/dirty_background_ratio 10
+write /proc/sys/vm/dirty_ratio 30
+write /proc/sys/vm/dirty_expire_centisecs 3000
+write /proc/sys/vm/dirty_writeback_centisecs 3000
+write /proc/sys/vm/page-cluster 0
+write /proc/sys/vm/reap_mem_on_sigkill 1
+write /proc/sys/vm/stat_interval 10
+write /proc/sys/vm/swappiness 50
+write /proc/sys/vm/overcommit_ratio 100
+write /proc/sys/vm/vfs_cache_pressure 73
+
+# Adreno_Idler 
+write /sys/module/adreno_idler/parameters/adreno_idler_active Y
+write /sys/module/adreno_idler/parameters/adreno_idler_downdifferential 24
+write /sys/module/adreno_idler/parameters/adreno_idler_idlewait 15
+write /sys/module/adreno_idler/parameters/adreno_idler_idleworkload 5000
+
+# GPU
+write /sys/devices/soc/5000000.qcom,kgsl-3d0/devfreq/5000000.qcom,kgsl-3d0/adrenoboost 3
+write /sys/devices/soc/5000000.qcom,kgsl-3d0/kgsl/kgsl-3d0/throttling 0
+write /sys/class/kgsl/kgsl-3d0/min_clock_mhz 588
+write /sys/class/kgsl/kgsl-3d0/min_pwrlevel 1
+
+# Raid
+write /proc/sys/dev/raid/speed_limit_min 7000
+
+# Pty
+write /proc/sys/kernel/pty/max 4096
+
+# GC_delay
+write /proc/sys/kernel/keys/gc_delay 100
+write /proc/sys/kernel/keys/maxbytes 20000
+write /proc/sys/kernel/keys/maxkeys 200
+
+#break_time
+write /proc/sys/fs/lease-break-time 5
+write /proc/sys/fs/leases-enable 1
+
+#sched_domain
+write /proc/sys/kernel/sched_domain/cpu0/domain0/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu0/domain1/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu1/domain0/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu1/domain1/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu2/domain0/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu2/domain1/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu3/domain0/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu3/domain1/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu4/domain0/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu4/domain1/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu5/domain0/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu5/domain1/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu6/domain0/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu6/domain1/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu7/domain0/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu7/domain1/min_interval 8
+write /proc/sys/kernel/sched_domain/cpu0/domain0/busy_factor 24
+write /proc/sys/kernel/sched_domain/cpu1/domain0/busy_factor 24
+write /proc/sys/kernel/sched_domain/cpu2/domain0/busy_factor 24
+write /proc/sys/kernel/sched_domain/cpu3/domain0/busy_factor 24
+write /proc/sys/kernel/sched_domain/cpu4/domain0/busy_factor 24
+write /proc/sys/kernel/sched_domain/cpu5/domain0/busy_factor 24
+write /proc/sys/kernel/sched_domain/cpu6/domain0/busy_factor 24
+write /proc/sys/kernel/sched_domain/cpu7/domain0/busy_factor 24
+write /proc/sys/kernel/sched_domain/cpu0/domain0/busy_idx 1
+write /proc/sys/kernel/sched_domain/cpu1/domain0/busy_idx 1
+write /proc/sys/kernel/sched_domain/cpu2/domain0/busy_idx 1
+write /proc/sys/kernel/sched_domain/cpu3/domain0/busy_idx 1
+write /proc/sys/kernel/sched_domain/cpu4/domain0/busy_idx 1
+write /proc/sys/kernel/sched_domain/cpu5/domain0/busy_idx 1
+write /proc/sys/kernel/sched_domain/cpu6/domain0/busy_idx 1
+write /proc/sys/kernel/sched_domain/cpu7/domain0/busy_idx 1
+write /proc/sys/kernel/sched_domain/cpu0/domain0/cache_nice_tries 1
+write /proc/sys/kernel/sched_domain/cpu1/domain0/cache_nice_tries 1
+write /proc/sys/kernel/sched_domain/cpu2/domain0/cache_nice_tries 1
+write /proc/sys/kernel/sched_domain/cpu3/domain0/cache_nice_tries 1
+write /proc/sys/kernel/sched_domain/cpu4/domain0/cache_nice_tries 1
+write /proc/sys/kernel/sched_domain/cpu5/domain0/cache_nice_tries 1
+write /proc/sys/kernel/sched_domain/cpu6/domain0/cache_nice_tries 1
+write /proc/sys/kernel/sched_domain/cpu7/domain0/cache_nice_tries 1
+write /proc/sys/kernel/sched_domain/cpu0/domain0/flags 4143
+write /proc/sys/kernel/sched_domain/cpu1/domain0/flags 4143
+write /proc/sys/kernel/sched_domain/cpu2/domain0/flags 4143
+write /proc/sys/kernel/sched_domain/cpu3/domain0/flags 4143
+write /proc/sys/kernel/sched_domain/cpu4/domain0/flags 4143
+write /proc/sys/kernel/sched_domain/cpu5/domain0/flags 4143
+write /proc/sys/kernel/sched_domain/cpu6/domain0/flags 4143
+write /proc/sys/kernel/sched_domain/cpu7/domain0/flags 4143
+write /proc/sys/kernel/sched_domain/cpu0/domain0/forkexec_idx 0
+write /proc/sys/kernel/sched_domain/cpu1/domain0/forkexec_idx 0
+write /proc/sys/kernel/sched_domain/cpu2/domain0/forkexec_idx 0
+write /proc/sys/kernel/sched_domain/cpu3/domain0/forkexec_idx 0
+write /proc/sys/kernel/sched_domain/cpu4/domain0/forkexec_idx 0
+write /proc/sys/kernel/sched_domain/cpu5/domain0/forkexec_idx 0
+write /proc/sys/kernel/sched_domain/cpu6/domain0/forkexec_idx 0
+write /proc/sys/kernel/sched_domain/cpu7/domain0/forkexec_idx 0
+write /proc/sys/kernel/sched_domain/cpu0/domain0/idle_idx 1
+write /proc/sys/kernel/sched_domain/cpu1/domain0/idle_idx 1
+write /proc/sys/kernel/sched_domain/cpu2/domain0/idle_idx 1
+write /proc/sys/kernel/sched_domain/cpu3/domain0/idle_idx 1
+write /proc/sys/kernel/sched_domain/cpu4/domain0/idle_idx 1
+write /proc/sys/kernel/sched_domain/cpu5/domain0/idle_idx 1
+write /proc/sys/kernel/sched_domain/cpu6/domain0/idle_idx 1
+write /proc/sys/kernel/sched_domain/cpu7/domain0/idle_idx 1
+write /proc/sys/kernel/sched_domain/cpu0/domain0/imbalance_pct 125
+write /proc/sys/kernel/sched_domain/cpu1/domain0/imbalance_pct 125
+write /proc/sys/kernel/sched_domain/cpu2/domain0/imbalance_pct 125
+write /proc/sys/kernel/sched_domain/cpu3/domain0/imbalance_pct 125
+write /proc/sys/kernel/sched_domain/cpu4/domain0/imbalance_pct 125
+write /proc/sys/kernel/sched_domain/cpu5/domain0/imbalance_pct 125
+write /proc/sys/kernel/sched_domain/cpu6/domain0/imbalance_pct 125
+write /proc/sys/kernel/sched_domain/cpu7/domain0/imbalance_pct 125
+write /proc/sys/kernel/sched_domain/cpu0/domain0/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu0/domain1/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu1/domain0/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu1/domain1/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu2/domain0/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu2/domain1/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu3/domain0/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu3/domain1/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu4/domain0/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu4/domain1/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu5/domain0/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu5/domain1/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu6/domain0/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu6/domain1/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu7/domain0/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu7/domain1/max_interval 8
+write /proc/sys/kernel/sched_domain/cpu0/domain0/newidle_idx 0
+write /proc/sys/kernel/sched_domain/cpu1/domain0/newidle_idx 0
+write /proc/sys/kernel/sched_domain/cpu2/domain0/newidle_idx 0
+write /proc/sys/kernel/sched_domain/cpu3/domain0/newidle_idx 0
+write /proc/sys/kernel/sched_domain/cpu4/domain0/newidle_idx 0
+write /proc/sys/kernel/sched_domain/cpu5/domain0/newidle_idx 0
+write /proc/sys/kernel/sched_domain/cpu6/domain0/newidle_idx 0
+write /proc/sys/kernel/sched_domain/cpu7/domain0/newidle_idx 0
+write /proc/sys/kernel/sched_domain/cpu0/domain0/wake_idx 0
+write /proc/sys/kernel/sched_domain/cpu1/domain0/wake_idx 0
+write /proc/sys/kernel/sched_domain/cpu2/domain0/wake_idx 0
+write /proc/sys/kernel/sched_domain/cpu3/domain0/wake_idx 0
+write /proc/sys/kernel/sched_domain/cpu4/domain0/wake_idx 0
+write /proc/sys/kernel/sched_domain/cpu5/domain0/wake_idx 0
+write /proc/sys/kernel/sched_domain/cpu6/domain0/wake_idx 0
+write /proc/sys/kernel/sched_domain/cpu7/domain0/wake_idx 0
+
+# Wakeup_threshold
+write /proc/sys/kernel/random/read_wakeup_threshold 64
+write /proc/sys/kernel/random/write_wakeup_threshold 896
+write /proc/sys/kernel/random/urandom_min_reseed_secs 120
+
+# Stune_Boost
+write /sys/module/cpu_boost/parameters/dynamic_stune_boost 15
+write /sys/module/cpu_boost/parameters/dynamic_stune_boost_ms 500
+write /sys/module/cpu_boost/parameters/input_boost_freq 0:0 1:0 2:0 3:0 4:0 5:0 6:0 7:0 
+write /sys/module/cpu_boost/parameters/input_boost_ms 30
+
+# Uclamp
+write /proc/sys/kernel/sched_util_clamp_min 128
+write /proc/sys/kernel/sched_util_clamp_min_rt_default 128
+write /dev/cpuset/top-app/uclamp.max max
+write /dev/cpuset/top-app/uclamp.min 50
+write /dev/cpuset/top-app/uclamp.boosted 1
+write /dev/cpuset/top-app/uclamp.latency_sensitive 1
+write /dev/cpuset/foreground/uclamp.max 50
+write /dev/cpuset/foreground/uclamp.min 20
+write /dev/cpuset/foreground/uclamp.boosted 0
+write /dev/cpuset/foreground/uclamp.latency_sensitive 0
+write /dev/cpuset/background/uclamp.max 50
+write /dev/cpuset/background/uclamp.min 10
+write /dev/cpuset/background/uclamp.boosted 0
+write /dev/cpuset/background/uclamp.latency_sensitive 0
+write /dev/cpuset/system-background/uclamp.max 50
+write /dev/cpuset/system-background/uclamp.min 10
+write /dev/cpuset/system-background/uclamp.boosted 0
+write /dev/cpuset/system-background/uclamp.latency_sensitive 0
+
+# I/O
+write /sys/block/mmcblk0/queue/nomerges 0
+write /sys/block/mmcblk0/queue/rotational 0
+write /sys/block/mmcblk0/queue/rq_affinity 1
+write /sys/block/mmcblk0/queue/read_ahead_kb 256
+write /sys/block/mmcblk0/queue/nr_requests 512
+write /sys/block/mmcblk0/queue/iosched/batch_count 8
+write /sys/block/mmcblk0/queue/iosched/sync_ratio 16
+write /sys/block/mmcblk0rpmb/queue/nomerges 0
+write /sys/block/mmcblk0rpmb/queue/rotational 0
+write /sys/block/mmcblk0rpmb/queue/rq_affinity 1
+write /sys/block/mmcblk0rpmb/queue/read_ahead_kb 256
+write /sys/block/mmcblk0rpmb/queue/nr_requests 512
+write /sys/block/mmcblk0rpmb/queue/iosched/batch_count 8
+write /sys/block/mmcblk0rpmb/queue/iosched/sync_ratio 16
+
+# CPU
+for cpu in /sys/devices/system/cpu/cpu*/cpufreq/
+do
+	avail_govs="$(cat "${cpu}scaling_available_governors")"
+	if [[ "$avail_govs" == *"performance"* ]]
+	then
+		write "${cpu}scaling_governor" performance
+	fi
+done
+
+# Scheduler
+for queue in /sys/block/*/queue/
+do
+	avail_scheds="$(cat "${queue}scheduler")"
+	for sched in anxiety cfq noop kyber bfq mq-deadline none
+	do
+		if [[ "$avail_scheds" == *"$sched"* ]]
+		then
+			write "${queue}scheduler" "$sched"
+			break
+		fi
+	done
+	write "${queue}iostats" 0
+done
+
+exit 0
